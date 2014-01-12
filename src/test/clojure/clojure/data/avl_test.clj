@@ -123,4 +123,9 @@
     (is (every? true? (map #(= (inc %) (avl/nearest avl-set > %)) (drop-last ks))))
     (is (every? true? (map #(= (dec %) (avl/nearest avl-set < %)) (rest ks))))
     (is (every? true? (map #(= (inc %) (key (avl/nearest avl-map > %))) (drop-last ks))))
-    (is (every? true? (map #(= (dec %) (key (avl/nearest avl-map < %))) (rest ks))))))
+    (is (every? true? (map #(= (dec %) (key (avl/nearest avl-map < %))) (rest ks)))))
+  (testing "this whole contraption works with sorted-*-by"
+    (is (every? true? (map #(= % (avl/nearest avl-set-by-> >= %)) ks)))
+    (is (every? true? (map #(= % (avl/nearest avl-set-by-> <= %)) ks)))
+    (is (every? true? (map #(= (inc %) (avl/nearest avl-set-by-> > %)) (drop-last ks))))
+    (is (every? true? (map #(= (dec %) (avl/nearest avl-set-by-> < %)) (rest ks))))))
