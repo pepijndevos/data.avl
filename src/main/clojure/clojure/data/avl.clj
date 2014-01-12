@@ -13,7 +13,7 @@
   (:import (clojure.lang RT Util APersistentMap APersistentSet
                          IPersistentMap IPersistentSet IPersistentStack
                          Box MapEntry SeqIterator)
-           (java.util Comparator Collections ArrayList)
+           (java.util Comparator Collections ArrayList NavigableMap NavigableSet)
            (java.util.concurrent.atomic AtomicReference)))
 
 (defn ^:private throw-unsupported []
@@ -316,6 +316,24 @@
                     (if (== -1 r)
                       -1
                       (inc (+ (.getRank node) r))))))))
+
+(defn ^:private nearest* ^IAVLNode [^Comparator comp pred ^IAVLNode node k]
+  (if (nil? node)
+    nil
+    (let [c (.compare comp k (.getKey node))
+          ln (.getLeft node)
+          rn (.getRight node)]
+      (cond
+        (neg? c) (or (nearest* comp pred ln k)
+                     (when (pred (.getKey node) k) node))
+        (pos? c) (or (nearest* comp pred rn k)
+                     (when (pred (.getKey node) k) node))
+        (pred (.getKey node) k) node
+        (and ln (pred (.getKey ln) k)) (nearest* comp pred ln k)
+        (and rn (pred (.getKey rn) k)) (nearest* comp pred rn k)))))
+
+(defprotocol INavigable
+  (nearest [this pred key] "Find the entry nearest to key that satisfies pred"))
 
 (defn ^:private maybe-rebalance ^IAVLNode [^IAVLNode node]
   (let [l  (.getLeft node)
@@ -934,6 +952,44 @@
   (comparator [this]
     comp)
 
+  NavigableMap
+  (ceilingEntry [this k]
+    (when-let [^IAVLNode node (nearest* comp >= tree k)]
+      (MapEntry. (.getKey node) (.getVal node))))
+
+  (ceilingKey [this k]
+    (when-let [^IAVLNode node (nearest* comp >= tree k)]
+      (.getKey node)))
+
+  (floorEntry [this k]
+    (when-let [^IAVLNode node (nearest* comp <= tree k)]
+      (MapEntry. (.getKey node) (.getVal node))))
+
+  (floorKey [this k]
+    (when-let [^IAVLNode node (nearest* comp <= tree k)]
+      (.getKey node)))
+
+  (higherEntry [this k]
+    (when-let [^IAVLNode node (nearest* comp > tree k)]
+      (MapEntry. (.getKey node) (.getVal node))))
+
+  (higherKey [this k]
+    (when-let [^IAVLNode node (nearest* comp > tree k)]
+      (.getKey node)))
+
+  (lowerEntry [this k]
+    (when-let [^IAVLNode node (nearest* comp < tree k)]
+      (MapEntry. (.getKey node) (.getVal node))))
+
+  (lowerKey [this k]
+    (when-let [^IAVLNode node (nearest* comp < tree k)]
+      (.getKey node)))
+
+  INavigable
+  (nearest [this pred k]
+    (when-let [^IAVLNode node (nearest* comp pred tree k)]
+      (MapEntry. (.getKey node) (.getVal node))))
+
   clojure.lang.IEditableCollection
   (asTransient [this]
     (->AVLTransientMap
@@ -1163,6 +1219,24 @@
         1 (.invoke this (first args))
         2 (throw (clojure.lang.ArityException.
                   n (.. this (getClass) (getSimpleName)))))))
+
+  NavigableSet
+  (ceiling [this k]
+    (.ceilingKey avl-map k))
+
+  (floor [this k]
+    (.floorKey avl-map k))
+
+  (higher [this k]
+    (.higherKey avl-map k))
+
+  (lower [this k]
+    (.lowerKey avl-map k))
+
+  INavigable
+  (nearest [this pred k]
+    (when-let [^IAVLNode node (nearest* (.-comp avl-map) pred (.-tree avl-map) k)]
+      (.getKey node)))
 
   clojure.lang.IEditableCollection
   (asTransient [this]
